@@ -1,0 +1,80 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.example
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Build directories
+dist/
+build/
+.out/
+.next/
+
+# IDE and Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Debug logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Database files
+*.db
+*.sqlite
+*.sql
+
+# Uploads (if you have user uploads)
+uploads/
+public/uploads/
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Optional production dependencies
+.nuxt/
+
+# macOS
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+services/brevo_test.js

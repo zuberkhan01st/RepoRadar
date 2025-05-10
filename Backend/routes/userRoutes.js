@@ -14,4 +14,10 @@ router.post('/issue',controller.createIssue);
 
 router.get('/latest_contributors',controller.getLatestContributors);
 
+router.get('/all_contributors', controller.getAllContributors);
+
+router.get('/check', controller.check);
+
+router.get('/chat',controller.chatAboutRepo);
+
 module.exports = router;

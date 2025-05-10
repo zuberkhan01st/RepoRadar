@@ -83,43 +83,58 @@ exports.getAllContributors = async (owner, repo) => {
 };
 
 // Get detailed information about a repository
-exports.getRepoInfo = async (owner, repo) => {
+exports.getRepoTreeStructure = async (owner, repo, branch = 'master') => {
   try {
-    const response = await githubApi.get(`/repos/${owner}/${repo}`);
-    
-    const {
-      name,
-      full_name,
-      description,
-      language,
-      stargazers_count,
-      forks_count,
-      open_issues_count,
-      license,
-      created_at,
-      updated_at,
-      visibility,
-      html_url,
-    } = response.data;
+    // Debug: Log the request parameters
+    console.log('Fetching repo structure for:', { owner, repo, branch });
+
+    // First verify the repo exists
+    const repoInfo = await githubApi.get(`/repos/${owner}/${repo}`);
+    console.log('Repository found:', repoInfo.data.full_name);
+
+    // Then verify the branch exists
+    const branchInfo = await githubApi.get(`/repos/${owner}/${repo}/branches/${branch}`);
+    console.log('Branch found:', branchInfo.data.name);
+
+    // Now fetch the tree
+    const response = await githubApi.get(
+      `/repos/${owner}/${repo}/git/trees/${branchInfo.data.commit.sha}?recursive=true`
+    );
+
+    //console.log(response.data.tree);
 
     return {
-      name,
-      full_name,
-      description,
-      language,
-      stars: stargazers_count,
-      forks: forks_count,
-      open_issues: open_issues_count,
-      license: license?.name || 'No license',
-      created_at,
-      updated_at,
-      visibility,
-      url: html_url,
+      sha: response.data.sha,
+      tree: response.data.tree,
+      truncated: response.data.truncated || false
     };
+    
   } catch (error) {
-    console.error(`Error fetching info for ${owner}/${repo}:`, error.response?.data || error.message);
-    throw new Error(`Failed to fetch repository info for ${owner}/${repo}`);
+    // Enhanced error diagnostics
+    console.error('GitHub API Request Details:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      params: error.config?.params
+    });
+
+    if (error.response) {
+      console.error('GitHub API Response:', {
+        status: error.response.status,
+        headers: error.response.headers,
+        data: error.response.data
+      });
+    }
+
+    let message = 'Failed to fetch repository structure';
+    if (error.response?.status === 404) {
+      if (error.response.data?.message.includes('Not Found')) {
+        message = 'Repository or branch not found. Please verify:';
+        message += `\n- Does https://github.com/${owner}/${repo}/tree/${branch} exist?`;
+        message += `\n- Is your GitHub token valid and has repo access?`;
+      }
+    }
+
+    throw new Error(`${message}\nTechnical details: ${error.message}`);
   }
+
 };
-
-

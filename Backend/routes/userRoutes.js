@@ -18,6 +18,6 @@ router.get('/all_contributors', controller.getAllContributors);
 
 router.get('/check', controller.check);
 
-router.get('/chat',controller.chatAboutRepo);
+router.get('/chat',auth, controller.chatAboutRepo);
 
 module.exports = router;

@@ -4,7 +4,8 @@ const User = require('../models/User');
 const githubService = require('../services/githubService');
 const groqService = require('../services/groqService');
 //const gitingestService = require('../services/gitingestService');
-
+const Chat = require('../models/Chat');
+const sanitize = require('sanitize-html'); // Optional: for sanitizing inputs
 
 // Must export getMe
 exports.getMe = async (req, res) => {
@@ -127,96 +128,225 @@ exports.getRepoTreeStructure = async (req, res) => {
 
 
 
-exports.getAllContributors = async (req,res)=>{
-  try{
-    const {owner,repo} = req.body;
+exports.getAllContributors = async (req, res) => {
+  try {
+    const { owner, repo } = req.body;
 
-    if(!owner || !repo) return res.json({message: "Provide the owner and repo!"});
+    if (!owner || !repo) return res.json({ message: "Provide the owner and repo!" });
 
-    const data = await githubService.getLatestCommitContributors(owner,repo);
+    const data = await githubService.getLatestCommitContributors(owner, repo);
 
-    if(!data){
-      return res.status(404).json({message: "Nothings found!"});
+    if (!data) {
+      return res.status(404).json({ message: "Nothings found!" });
     }
 
-    return res.status(200).json({message: data});
-  }
-  catch(err){
-    return res.json({error: err.message});
+    return res.status(200).json({ message: data });
+  } catch (err) {
+    return res.json({ error: err.message });
   }
 };
+
+
 
 exports.chatAboutRepo = async (req, res) => {
   try {
-    const { question, owner, repo } = req.body;
+    const { question, owner, repo, additionalParams = {} } = req.body;
+    const userId = req.user?.id;
 
+    // Validate input
     if (!question || !owner || !repo) {
-      return res.status(400).json({ message: "Provide question, owner, and repo" });
+      return res.status(400).json({ message: "Question, owner, and repo are required" });
+    }
+    if (!userId) {
+      return res.status(401).json({ message: "User authentication required" });
     }
 
+    // Sanitize inputs (optional, if sanitize-html is used)
+    const sanitizedQuestion = sanitize(question, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedOwner = sanitize(owner, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedRepo = sanitize(repo, { allowedTags: [], allowedAttributes: {} });
+
+    // Save user message
+    const userChat = new Chat({
+      userId,
+      botId: 'github-assistant',
+      message: sanitizedQuestion,
+      senderType: 'user',
+      context: { owner: sanitizedOwner, repo: sanitizedRepo }
+    });
+    await userChat.save();
+
+    // Tool selector prompt
     const toolSelectorPrompt = `
-      You are an AI deciding which GitHub tool to use.
-      Tools:
-      - getRepoInfo
-      - getRecentCommits
-      - getLatestCommitContributors
-      - getAllContributors
-      - createIssue
-      - getCodeStructure
+      You are an AI selecting the most appropriate GitHub tool for a user's question.
+      Available tools:
+      - getRepoInfo: General repository information (e.g., description, stars)
+      - getRecentCommits: Recent commit history
+      - getLatestCommitContributors: Contributors to the latest commit
+      - getAllContributors: All repository contributors
+      - getCodeStructure: Repository file and folder structure
+      - createIssue: Create a new GitHub issue
+      - createPullRequest: Create a new pull request
+      - listOpenIssues: List all open issues
+      - createRepoWebhook: Create a repository webhook
+      - noTool: General questions not requiring specific GitHub data
 
-      User question: "${question}"
-      Just respond with only one most important tool name. No extra text.
+      User question: "${sanitizedQuestion}"
+      Respond with only the tool name in lowercase.
     `;
+    const selectedTool = (await groqService.queryLLM(toolSelectorPrompt)).toLowerCase().trim();
 
-    const selectedTool = (await groqService.queryLLM(toolSelectorPrompt)).toLowerCase();
-    console.log("LLM selected tool:", selectedTool);
-
-    let githubData = "";
-    let dataLabel = "";
-
-    switch (selectedTool) {
-      case "getrecentcommits":
-        githubData = JSON.stringify(await githubService.getRecentCommits(owner, repo), null, 2);
-        dataLabel = "Recent Commits";
-        break;
-      case "getlatestcommitcontributors":
-        githubData = JSON.stringify(await githubService.getLatestCommitContributors(owner, repo), null, 2);
-        dataLabel = "Latest Contributors";
-        break;
-      case "getallcontributors":
-        githubData = JSON.stringify(await githubService.getAllContributors(owner, repo), null, 2);
-        dataLabel = "All Contributors";
-        break;
-      case "getCodeStructure":
-        githubData = JSON.stringify(await githubService.getRepoTreeStructure(owner, repo), null, 2);
-        dataLabel = "Code Structure";
-        break;
-      case "getrepoinfo":
-      default:
-        githubData = JSON.stringify(await githubService.getRepoTreeStructure(owner, repo), null, 2);
-        dataLabel = "Repository Info";
-        break;
+    // Validate selected tool
+    const validTools = [
+      'getrepoinfo', 'getrecentcommits', 'getlatestcommitcontributors',
+      'getallcontributors', 'getcodestructure', 'createissue',
+      'createpullrequest', 'listopenissues', 'createrepowebhook', 'notool'
+    ];
+    if (!validTools.includes(selectedTool)) {
+      throw new Error(`Invalid tool selected: ${selectedTool}`);
     }
 
+    // Handle GitHub data fetching
+    let githubData = null;
+    let dataLabel = '';
+
+    const toolHandlers = {
+      getrecentcommits: {
+        label: 'Recent Commits',
+        handler: () => githubService.getRecentCommits(sanitizedOwner, sanitizedRepo)
+      },
+      getlatestcommitcontributors: {
+        label: 'Latest Commit Contributors',
+        handler: () => githubService.getLatestCommitContributors(sanitizedOwner, sanitizedRepo)
+      },
+      getallcontributors: {
+        label: 'All Contributors',
+        handler: () => githubService.getAllContributors(sanitizedOwner, sanitizedRepo)
+      },
+      getcodestructure: {
+        label: 'Code Structure',
+        handler: () => githubService.getRepoTreeStructure(sanitizedOwner, sanitizedRepo)
+      },
+      createissue: {
+        label: 'Created Issue',
+        handler: () => {
+          const { issueTitle, issueBody } = additionalParams;
+          if (!issueTitle || !issueBody) {
+            throw new Error('issueTitle and issueBody are required for creating an issue');
+          }
+          return githubService.createIssue(sanitizedOwner, sanitizedRepo, issueTitle, issueBody);
+        }
+      },
+      createpullrequest: {
+        label: 'Created Pull Request',
+        handler: () => {
+          const { prTitle, prHead, prBase, prBody } = additionalParams;
+          if (!prTitle || !prHead || !prBase || !prBody) {
+            throw new Error('prTitle, prHead, prBase, and prBody are required for creating a pull request');
+          }
+          return githubService.createPullRequest(sanitizedOwner, sanitizedRepo, prTitle, prHead, prBase, prBody);
+        }
+      },
+      listopenissues: {
+        label: 'Open Issues',
+        handler: () => githubService.listOpenIssues(sanitizedOwner, sanitizedRepo)
+      },
+      createrepowebhook: {
+        label: 'Created Webhook',
+        handler: () => {
+          const { webhookUrl, events } = additionalParams;
+          if (!webhookUrl) {
+            throw new Error('webhookUrl is required for creating a webhook');
+          }
+          return githubService.createRepoWebhook(sanitizedOwner, sanitizedRepo, webhookUrl, events || ['push', 'pull_request']);
+        }
+      },
+      getrepoinfo: {
+        label: 'Repository Information',
+        handler: () => ({
+          message: `Use this owner: ${owner} and repo: ${repo}`
+        })
+      },
+      notool: {
+        label: 'General Question',
+        handler: () => ({ message: 'No specific GitHub data required' })
+      }
+    };
+
+    const selectedHandler = toolHandlers[selectedTool] || toolHandlers.notool;
+    dataLabel = selectedHandler.label;
+    githubData = await selectedHandler.handler();
+    const formattedGithubData = JSON.stringify(githubData, null, 2);
+
+    // Fetch chat history (last 5 messages for this user and repo)
+    const history = await Chat.find({
+      userId,
+      'context.repo': sanitizedRepo
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Final response prompt
     const finalPrompt = `
-      You are a GitHub assistant chatbot.
-      User asked: "${question}"
-
-      Based on this GitHub data (${dataLabel}):
-      ${githubData}
-
-      Give a helpful, concise, human-readable response.
+      You are an expert GitHub assistant providing accurate and helpful responses.
       
+      User question: "${sanitizedQuestion}"
+      
+      Relevant GitHub data (${dataLabel}):
+      ${formattedGithubData}
+      
+      Recent chat history (use only if relevant to the current question):
+      ${JSON.stringify(history, null, 2)}
+      
+      Guidelines:
+      - Provide a concise, accurate response based on the GitHub data
+      - Use chat history only if it provides relevant context for the current question
+      - Format the response as a JSON object with a "response" field
+      - Avoid unnecessary details and keep the response focused
+      - If the data is insufficient, suggest next steps or clarify limitations
+      - Do not include raw JSON data in the response unless explicitly requested
+      
+      Return only the JSON response object.
     `;
-
     const finalAnswer = await groqService.queryLLM(finalPrompt);
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(finalAnswer);
+      if (!parsedResponse.response) {
+        throw new Error('Response field missing in LLM output');
+      }
+    } catch (parseError) {
+      parsedResponse = { response: finalAnswer }; // Fallback
+    }
 
-    return res.status(200).json({ answer: finalAnswer, tool: selectedTool });
+    // Save bot response
+    const botChat = new Chat({
+      userId,
+      botId: 'github-assistant',
+      message: parsedResponse.response,
+      senderType: 'bot',
+      context: { owner: sanitizedOwner, repo: sanitizedRepo, selectedTool }
+    });
+    await botChat.save();
+
+    return res.status(200).json({
+      message: parsedResponse.response,
+      history,
+      selectedTool,
+      githubData: formattedGithubData,
+      dataLabel
+    });
+
   } catch (err) {
-    console.error("chatAboutRepo error:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.error('Error in chatAboutRepo:', {
+      message: err.message,
+      stack: err.stack,
+      userId: req.user?.id
+    });
+    return res.status(500).json({
+      error: err.message || 'An unexpected error occurred',
+      code: err.code || 'INTERNAL_SERVER_ERROR'
+    });
   }
 };
-
-
-

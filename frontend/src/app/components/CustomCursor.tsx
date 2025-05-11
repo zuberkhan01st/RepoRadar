@@ -2,56 +2,63 @@
 
 import { useEffect, useState } from 'react';
 import { Box } from '@chakra-ui/react';
+import { motion } from 'framer-motion';
 
-const CustomCursor = () => {
+const MotionBox = motion(Box);
+
+export default function CustomCursor() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      requestAnimationFrame(() => {
-        setPosition({ x: e.clientX, y: e.clientY });
-      });
+    const updatePosition = (e: MouseEvent) => {
+      setPosition({ x: e.clientX, y: e.clientY });
     };
 
-    const handleMouseOver = (e: MouseEvent) => {
+    const updateHoverState = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      const isInteractive = 
-        target.tagName === 'BUTTON' ||
-        target.tagName === 'A' ||
+      const isInteractive = !!(
         target.closest('button') ||
         target.closest('a') ||
-        target.closest('input');
-      
+        target.closest('input')
+      );
       setIsHovering(isInteractive);
     };
 
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('mouseover', handleMouseOver, { passive: true });
+    window.addEventListener('mousemove', updatePosition);
+    window.addEventListener('mouseover', updateHoverState);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseover', handleMouseOver);
+      window.removeEventListener('mousemove', updatePosition);
+      window.removeEventListener('mouseover', updateHoverState);
     };
   }, []);
 
   return (
-    <Box
+    <MotionBox
       position="fixed"
       top={0}
       left={0}
-      width={isHovering ? "24px" : "16px"}
-      height={isHovering ? "24px" : "16px"}
+      width="20px"
+      height="20px"
       borderRadius="50%"
-      bg="brand.500"
-      opacity={0.5}
+      backgroundColor="brand.500"
       pointerEvents="none"
       zIndex={9999}
-      transform={`translate(${position.x - (isHovering ? 12 : 8)}px, ${position.y - (isHovering ? 12 : 8)}px)`}
-      transition="all 0.1s ease-out"
-      mixBlendMode="difference"
+      animate={{
+        x: position.x - 10,
+        y: position.y - 10,
+        scale: isHovering ? 1.5 : 1,
+      }}
+      transition={{
+        type: 'spring',
+        stiffness: 150,
+        damping: 15,
+        mass: 0.1,
+      }}
+      style={{
+        mixBlendMode: 'difference',
+      }}
     />
   );
-};
-
-export default CustomCursor; 
+} 

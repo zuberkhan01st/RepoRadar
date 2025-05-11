@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { repoUrl } = await request.json();
 
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Analyze API error:', error);
     return NextResponse.json(
       { error: 'Failed to analyze repository' },

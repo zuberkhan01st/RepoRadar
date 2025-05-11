@@ -1,12 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { message, repoUrl } = await request.json();
 
-    if (!message || !repoUrl) {
+    if (!message) {
       return NextResponse.json(
-        { error: 'Message and repository URL are required' },
+        { error: 'Message is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!repoUrl) {
+      return NextResponse.json(
+        { error: 'Repository URL is required' },
         { status: 400 }
       );
     }
@@ -14,14 +21,15 @@ export async function POST(request: Request) {
     // TODO: Implement actual AI chat logic here
     // For now, return a mock response
     const response = {
-      message: `I've analyzed the repository at ${repoUrl}. Your question was: "${message}". This is a placeholder response.`,
+      message: `I understand you're asking about the repository ${repoUrl}. Here's what I can tell you: ${message}`,
+      type: 'text',
     };
 
     return NextResponse.json(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { error: 'Failed to process chat request' },
+      { error: 'Failed to process chat message' },
       { status: 500 }
     );
   }

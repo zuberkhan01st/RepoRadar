@@ -27,6 +27,8 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
+  Code,
+  useClipboard,
 } from '@chakra-ui/react';
 import {
   FaPaperPlane,
@@ -42,10 +44,25 @@ import {
   FaFileCode,
   FaChartBar,
   FaQuestionCircle,
+  FaCopy,
+  FaCheck,
 } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SiGithub } from 'react-icons/si';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
+
+interface CodeProps {
+  node?: any;
+  inline?: boolean;
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}
 
 const MotionBox = motion(Box);
 
@@ -65,6 +82,7 @@ export default function ChatPage() {
   const toast = useToast();
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { hasCopied, onCopy } = useClipboard('');
 
   useEffect(() => {
     // Get the analyzed repository from localStorage
@@ -146,6 +164,58 @@ export default function ChatPage() {
         type: 'text',
       },
     ]);
+  };
+
+  const renderMessage = (message: Message) => {
+    const isCodeBlock = message.content.includes('```');
+    const isMarkdown = message.content.includes('*') || message.content.includes('#') || message.content.includes('`');
+
+    if (isCodeBlock || isMarkdown) {
+      return (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code: ({ className, children }) => {
+              const match = /language-(\w+)/.exec(className || '');
+              return match ? (
+                <Box position="relative">
+                  <SyntaxHighlighter
+                    style={vscDarkPlus as any}
+                    language={match[1]}
+                    PreTag="div"
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                  <IconButton
+                    aria-label="Copy code"
+                    icon={hasCopied ? <FaCheck /> : <FaCopy />}
+                    size="sm"
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    onClick={() => {
+                      onCopy(String(children));
+                      toast({
+                        title: 'Copied!',
+                        status: 'success',
+                        duration: 2000,
+                        isClosable: true,
+                      });
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Code>{children}</Code>
+              );
+            },
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      );
+    }
+
+    return <Text fontWeight="medium">{message.content}</Text>;
   };
 
   if (!repoUrl) {
@@ -324,7 +394,7 @@ export default function ChatPage() {
                       <HStack spacing={2} mb={2}>
                         {message.type === 'code' && <FaCode />}
                         {message.type === 'analysis' && <FaChartBar />}
-                        <Text fontWeight="medium">{message.content}</Text>
+                        {renderMessage(message)}
                       </HStack>
                       <Text
                         fontSize="xs"

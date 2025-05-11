@@ -60,16 +60,23 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [repoUrl, setRepoUrl] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const repoUrl = localStorage.getItem('analyzedRepo') || '';
-
   useEffect(() => {
+    // Get the analyzed repository from localStorage
+    const storedRepoUrl = localStorage.getItem('analyzedRepo');
+    if (!storedRepoUrl) {
+      router.push('/');
+      return;
+    }
+    setRepoUrl(storedRepoUrl);
+
     // Add initial greeting message with repo info
-    const [owner, repo] = repoUrl.split('/').slice(-2);
+    const [owner, repo] = storedRepoUrl.split('/').slice(-2);
     setMessages([
       {
         role: 'assistant',
@@ -78,7 +85,7 @@ export default function ChatPage() {
         type: 'text',
       },
     ]);
-  }, [repoUrl]);
+  }, [router]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,6 +111,7 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: userMessage,
+          repoUrl,
         }),
       });
 
@@ -119,7 +127,7 @@ export default function ChatPage() {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to get response from AI',
+        description: error?.message || 'Failed to get response from AI',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -139,6 +147,10 @@ export default function ChatPage() {
       },
     ]);
   };
+
+  if (!repoUrl) {
+    return null; // or a loading state
+  }
 
   return (
     <Box minH="100vh" bg="gray.900" color="white">

@@ -1,22 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import "./globals.css";
 import { Providers } from './providers';
 import AnimatedCursor from './components/AnimatedCursor';
 
-const geistSans = Geist({
-  subsets: ['latin'],
-  variable: '--font-geist-sans',
-});
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
-});
-
 export const metadata: Metadata = {
-  title: "RepoRadar - AI GitHub Repository Assistant",
-  description: "Your AI-powered GitHub repository analysis tool",
+  title: "RepoRadar - AI-Powered GitHub Repository Analysis",
+  description: "Analyze any GitHub repository with AI and get instant insights",
 };
 
 export default function RootLayout({
@@ -25,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
+      <body>
         <Providers>
           {children}
           <AnimatedCursor />

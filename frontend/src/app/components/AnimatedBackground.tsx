@@ -2,127 +2,118 @@
 
 import { Box } from '@chakra-ui/react';
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
 
 const AnimatedBackground = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ 
-      alpha: true, 
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
-    
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    containerRef.current.appendChild(renderer.domElement);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Particle settings
+    const particles: Array<{
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+      opacity: number;
+    }> = [];
 
     // Create particles
-    const particlesGeometry = new THREE.BufferGeometry();
-    const particlesCount = 1000; // Reduced particle count
-    const posArray = new Float32Array(particlesCount * 3);
-
-    for (let i = 0; i < particlesCount * 3; i++) {
-      posArray[i] = (Math.random() - 0.5) * 5;
-    }
-
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-
-    // Material
-    const particlesMaterial = new THREE.PointsMaterial({
-      size: 0.005,
-      color: '#8b5cf6',
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-      sizeAttenuation: true,
-    });
-
-    // Mesh
-    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-    scene.add(particlesMesh);
-
-    // Position camera
-    camera.position.z = 2;
-
-    // Mouse movement effect with throttling
-    let mouseX = 0;
-    let mouseY = 0;
-    let lastTime = 0;
-    const throttleDelay = 16; // ~60fps
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const currentTime = performance.now();
-      if (currentTime - lastTime < throttleDelay) return;
-      
-      lastTime = currentTime;
-      mouseX = event.clientX / window.innerWidth - 0.5;
-      mouseY = event.clientY / window.innerHeight - 0.5;
+    const createParticles = () => {
+      const particleCount = Math.min(50, Math.floor(window.innerWidth / 20));
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 1,
+          speedX: (Math.random() - 0.5) * 0.5,
+          speedY: (Math.random() - 0.5) * 0.5,
+          opacity: Math.random() * 0.5 + 0.1,
+        });
+      }
     };
+    createParticles();
 
-    window.addEventListener('mousemove', handleMouseMove);
-
-    // Animation with requestAnimationFrame
-    let animationFrameId: number;
+    // Animation
     const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update and draw particles
+      particles.forEach((particle) => {
+        // Update position
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
 
-      particlesMesh.rotation.x += 0.0003; // Reduced rotation speed
-      particlesMesh.rotation.y += 0.0003;
+        // Wrap around screen
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.y < 0) particle.y = canvas.height;
+        if (particle.y > canvas.height) particle.y = 0;
 
-      // Mouse movement effect with dampening
-      particlesMesh.rotation.x += mouseY * 0.0003;
-      particlesMesh.rotation.y += mouseX * 0.0003;
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(99, 102, 241, ${particle.opacity})`;
+        ctx.fill();
+      });
 
-      renderer.render(scene, camera);
+      // Draw connections
+      particles.forEach((particle, i) => {
+        particles.slice(i + 1).forEach((otherParticle) => {
+          const dx = particle.x - otherParticle.x;
+          const dy = particle.y - otherParticle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 100) {
+            ctx.beginPath();
+            ctx.moveTo(particle.x, particle.y);
+            ctx.lineTo(otherParticle.x, otherParticle.y);
+            ctx.strokeStyle = `rgba(99, 102, 241, ${0.1 * (1 - distance / 100)})`;
+            ctx.stroke();
+          }
+        });
+      });
+
+      requestAnimationFrame(animate);
     };
-
     animate();
 
-    // Handle resize with debouncing
-    let resizeTimeout: NodeJS.Timeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      }, 250);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-      clearTimeout(resizeTimeout);
-      containerRef.current?.removeChild(renderer.domElement);
-      scene.remove(particlesMesh);
-      particlesGeometry.dispose();
-      particlesMaterial.dispose();
-      renderer.dispose();
+      window.removeEventListener('resize', resizeCanvas);
     };
   }, []);
 
   return (
     <Box
-      ref={containerRef}
       position="fixed"
       top={0}
       left={0}
       right={0}
       bottom={0}
-      zIndex={0}
       bg="black"
-    />
+      zIndex={0}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+      />
+    </Box>
   );
 };
 

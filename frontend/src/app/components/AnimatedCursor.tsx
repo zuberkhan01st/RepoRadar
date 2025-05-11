@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { Box } from '@chakra-ui/react';
-import gsap from 'gsap';
 
 const AnimatedCursor = () => {
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -13,66 +12,32 @@ const AnimatedCursor = () => {
     const cursorDot = cursorDotRef.current;
     if (!cursor || !cursorDot) return;
 
-    // Initialize GSAP
-    gsap.set([cursor, cursorDot], {
-      scale: 0,
-      opacity: 0,
-    });
-
-    let lastTime = 0;
-    const throttleDelay = 16; // ~60fps
-
     const moveCursor = (e: MouseEvent) => {
-      const currentTime = performance.now();
-      if (currentTime - lastTime < throttleDelay) return;
-      
-      lastTime = currentTime;
-
-      gsap.to(cursor, {
-        x: e.clientX,
-        y: e.clientY,
-        duration: 0.2,
-        ease: 'power2.out',
-        overwrite: true,
-      });
-      
-      gsap.to(cursorDot, {
-        x: e.clientX,
-        y: e.clientY,
-        duration: 0.1,
-        ease: 'power2.out',
-        overwrite: true,
-      });
+      cursor.style.left = `${e.clientX}px`;
+      cursor.style.top = `${e.clientY}px`;
+      cursorDot.style.left = `${e.clientX}px`;
+      cursorDot.style.top = `${e.clientY}px`;
     };
 
     const handleMouseEnter = () => {
-      gsap.to([cursor, cursorDot], {
-        scale: 1,
-        opacity: 1,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
+      cursor.style.opacity = '1';
+      cursorDot.style.opacity = '1';
     };
 
     const handleMouseLeave = () => {
-      gsap.to([cursor, cursorDot], {
-        scale: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
+      cursor.style.opacity = '0';
+      cursorDot.style.opacity = '0';
     };
 
-    // Add event listeners
+    // Set initial position
+    cursor.style.left = `${window.innerWidth / 2}px`;
+    cursor.style.top = `${window.innerHeight / 2}px`;
+    cursorDot.style.left = `${window.innerWidth / 2}px`;
+    cursorDot.style.top = `${window.innerHeight / 2}px`;
+
     window.addEventListener('mousemove', moveCursor);
     window.addEventListener('mouseenter', handleMouseEnter);
     window.addEventListener('mouseleave', handleMouseLeave);
-
-    // Initial cursor position
-    gsap.set([cursor, cursorDot], {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
 
     return () => {
       window.removeEventListener('mousemove', moveCursor);
@@ -100,6 +65,8 @@ const AnimatedCursor = () => {
         border="1px solid"
         borderColor="whiteAlpha.400"
         transform="translate(-50%, -50%)"
+        transition="opacity 0.3s ease"
+        opacity="0"
       />
       <Box
         ref={cursorDotRef}
@@ -109,6 +76,8 @@ const AnimatedCursor = () => {
         borderRadius="50%"
         bg="white"
         transform="translate(-50%, -50%)"
+        transition="opacity 0.3s ease"
+        opacity="0"
       />
     </Box>
   );

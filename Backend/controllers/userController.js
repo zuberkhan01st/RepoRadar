@@ -169,7 +169,7 @@ const parseGitHubUrl = (url) => {
 exports.chatAboutRepo = async (req, res) => {
   try {
     const { question, repoUrl, additionalParams = {} } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user.id;
 
     // Validate input
     if (!question || !repoUrl) {

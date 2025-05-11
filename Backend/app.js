@@ -17,7 +17,12 @@ connectDB();
 
 // Security Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -32,6 +37,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Logging
 app.use(morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'combined'));
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log('Request path:', req.path);
+  console.log('Request method:', req.method);
+  console.log('Request headers:', req.headers);
+  next();
+});
 
 // Static Files (if needed)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

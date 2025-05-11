@@ -146,22 +146,43 @@ exports.getAllContributors = async (req, res) => {
   }
 };
 
-
+// Helper function to parse GitHub URL
+const parseGitHubUrl = (url) => {
+  try {
+    // Handle both https and ssh URLs
+    const urlPattern = /(?:https?:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\/\.]+)(?:\.git)?/;
+    const match = url.match(urlPattern);
+    
+    if (!match) {
+      throw new Error('Invalid GitHub repository URL');
+    }
+    
+    return {
+      owner: match[1],
+      repo: match[2]
+    };
+  } catch (error) {
+    throw new Error('Failed to parse GitHub URL: ' + error.message);
+  }
+};
 
 exports.chatAboutRepo = async (req, res) => {
   try {
-    const { question, owner, repo, additionalParams = {} } = req.body;
+    const { question, repoUrl, additionalParams = {} } = req.body;
     const userId = req.user?.id;
 
     // Validate input
-    if (!question || !owner || !repo) {
-      return res.status(400).json({ message: "Question, owner, and repo are required" });
+    if (!question || !repoUrl) {
+      return res.status(400).json({ message: "Question and repository URL are required" });
     }
     if (!userId) {
       return res.status(401).json({ message: "User authentication required" });
     }
 
-    // Sanitize inputs (optional, if sanitize-html is used)
+    // Parse the repository URL
+    const { owner, repo } = parseGitHubUrl(repoUrl);
+
+    // Sanitize inputs
     const sanitizedQuestion = sanitize(question, { allowedTags: [], allowedAttributes: {} });
     const sanitizedOwner = sanitize(owner, { allowedTags: [], allowedAttributes: {} });
     const sanitizedRepo = sanitize(repo, { allowedTags: [], allowedAttributes: {} });
@@ -291,9 +312,14 @@ exports.chatAboutRepo = async (req, res) => {
     const finalPrompt = `
       You are an expert GitHub assistant providing accurate and helpful responses.
       
-      User question: "${sanitizedQuestion}"
+      User question: "${sanitizedQuestion}" about the repository: ${sanitizedOwner}/${sanitizedRepo}
       
-      Relevant GitHub data (${dataLabel}):
+      Repository Information:
+      - Owner: ${sanitizedOwner}
+      - Repository: ${sanitizedRepo}
+      - Data Type: ${dataLabel}
+      
+      Relevant GitHub data:
       ${formattedGithubData}
       
       Recent chat history (use only if relevant to the current question):
@@ -306,6 +332,8 @@ exports.chatAboutRepo = async (req, res) => {
       - Avoid unnecessary details and keep the response focused
       - If the data is insufficient, suggest next steps or clarify limitations
       - Do not include raw JSON data in the response unless explicitly requested
+      - Ensure the response is a string, not an array
+      - Always reference the specific repository (${sanitizedOwner}/${sanitizedRepo}) in your response
       
       Return only the JSON response object.
     `;
@@ -316,6 +344,10 @@ exports.chatAboutRepo = async (req, res) => {
       if (!parsedResponse.response) {
         throw new Error('Response field missing in LLM output');
       }
+      // Ensure response is a string
+      if (Array.isArray(parsedResponse.response)) {
+        parsedResponse.response = parsedResponse.response.join(', ');
+      }
     } catch (parseError) {
       parsedResponse = { response: finalAnswer }; // Fallback
     }
@@ -324,9 +356,9 @@ exports.chatAboutRepo = async (req, res) => {
     const botChat = new Chat({
       userId,
       botId: 'github-assistant',
-      message: parsedResponse.response,
+      message: String(parsedResponse.response), // Ensure message is a string
       senderType: 'bot',
-      context: { owner: sanitizedOwner, repo: sanitizedRepo, selectedTool }
+      context: { owner: sanitizedOwner, repo: sanitizedRepo }
     });
     await botChat.save();
 

@@ -7,54 +7,99 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
+  Input,
+  Button,
+  VStack,
+  useToast,
   Tabs,
   TabList,
   TabPanels,
   Tab,
   TabPanel,
-  VStack,
-  Input,
-  Button,
-  Text,
-  Divider,
-  useToast,
-  Box,
+  FormControl,
+  FormLabel,
+  FormErrorMessage,
 } from '@chakra-ui/react';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { FaGithub, FaGoogle } from 'react-icons/fa';
-
-const MotionBox = motion(Box);
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const toast = useToast();
+
+  const validateForm = (type: 'login' | 'signup') => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!email) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Email is invalid';
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+    } else if (type === 'signup' && password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (type === 'signup' && !name) {
+      newErrors.name = 'Name is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent, type: 'login' | 'signup') => {
     e.preventDefault();
+    
+    if (!validateForm(type)) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Add your authentication logic here
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-      
+      const endpoint = type === 'login' ? '/api/auth/login' : '/api/auth/signup';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(
+          type === 'login' 
+            ? { email, password }
+            : { email, password, name }
+        ),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to ${type}`);
+      }
+
+      // Handle successful auth
+      onClose();
       toast({
-        title: type === 'login' ? 'Logged in successfully' : 'Account created',
+        title: 'Success',
+        description: type === 'login' ? 'Logged in successfully!' : 'Account created successfully!',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-      
-      onClose();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'An error occurred',
+        description: error?.message || `An error occurred during ${type}`,
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -66,48 +111,46 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">
-      <ModalOverlay backdropFilter="blur(10px)" />
-      <ModalContent
-        bg="rgba(0, 0, 0, 0.8)"
-        backdropFilter="blur(10px)"
-        borderWidth="1px"
-        borderColor="whiteAlpha.200"
-        borderRadius="xl"
-      >
-        <ModalHeader color="white">Welcome to RepoRadar</ModalHeader>
-        <ModalCloseButton color="white" />
+      <ModalOverlay />
+      <ModalContent bg="gray.800" color="white">
+        <ModalHeader>Welcome to RepoRadar</ModalHeader>
+        <ModalCloseButton />
         <ModalBody pb={6}>
           <Tabs variant="soft-rounded" colorScheme="brand">
             <TabList mb={4}>
-              <Tab color="white">Login</Tab>
-              <Tab color="white">Sign Up</Tab>
+              <Tab>Login</Tab>
+              <Tab>Sign Up</Tab>
             </TabList>
 
             <TabPanels>
               <TabPanel>
                 <VStack spacing={4} as="form" onSubmit={(e) => handleSubmit(e, 'login')}>
-                  <Input
-                    placeholder="Email"
-                    type="email"
-                    bg="whiteAlpha.100"
-                    borderColor="whiteAlpha.200"
-                    color="white"
-                    _hover={{ borderColor: 'brand.500' }}
-                    _focus={{ borderColor: 'brand.500' }}
-                  />
-                  <Input
-                    placeholder="Password"
-                    type="password"
-                    bg="whiteAlpha.100"
-                    borderColor="whiteAlpha.200"
-                    color="white"
-                    _hover={{ borderColor: 'brand.500' }}
-                    _focus={{ borderColor: 'brand.500' }}
-                  />
+                  <FormControl isInvalid={!!errors.email}>
+                    <FormLabel>Email</FormLabel>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                    />
+                    <FormErrorMessage>{errors.email}</FormErrorMessage>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.password}>
+                    <FormLabel>Password</FormLabel>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                    />
+                    <FormErrorMessage>{errors.password}</FormErrorMessage>
+                  </FormControl>
+
                   <Button
                     type="submit"
                     colorScheme="brand"
-                    w="full"
+                    width="full"
                     isLoading={isLoading}
                   >
                     Login
@@ -117,36 +160,42 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
               <TabPanel>
                 <VStack spacing={4} as="form" onSubmit={(e) => handleSubmit(e, 'signup')}>
-                  <Input
-                    placeholder="Full Name"
-                    bg="whiteAlpha.100"
-                    borderColor="whiteAlpha.200"
-                    color="white"
-                    _hover={{ borderColor: 'brand.500' }}
-                    _focus={{ borderColor: 'brand.500' }}
-                  />
-                  <Input
-                    placeholder="Email"
-                    type="email"
-                    bg="whiteAlpha.100"
-                    borderColor="whiteAlpha.200"
-                    color="white"
-                    _hover={{ borderColor: 'brand.500' }}
-                    _focus={{ borderColor: 'brand.500' }}
-                  />
-                  <Input
-                    placeholder="Password"
-                    type="password"
-                    bg="whiteAlpha.100"
-                    borderColor="whiteAlpha.200"
-                    color="white"
-                    _hover={{ borderColor: 'brand.500' }}
-                    _focus={{ borderColor: 'brand.500' }}
-                  />
+                  <FormControl isInvalid={!!errors.name}>
+                    <FormLabel>Full Name</FormLabel>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter your full name"
+                    />
+                    <FormErrorMessage>{errors.name}</FormErrorMessage>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.email}>
+                    <FormLabel>Email</FormLabel>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                    />
+                    <FormErrorMessage>{errors.email}</FormErrorMessage>
+                  </FormControl>
+
+                  <FormControl isInvalid={!!errors.password}>
+                    <FormLabel>Password</FormLabel>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create a password"
+                    />
+                    <FormErrorMessage>{errors.password}</FormErrorMessage>
+                  </FormControl>
+
                   <Button
                     type="submit"
                     colorScheme="brand"
-                    w="full"
+                    width="full"
                     isLoading={isLoading}
                   >
                     Sign Up
@@ -155,36 +204,8 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
               </TabPanel>
             </TabPanels>
           </Tabs>
-
-          <Divider my={6} borderColor="whiteAlpha.200" />
-
-          <VStack spacing={4}>
-            <Text color="whiteAlpha.800" fontSize="sm">
-              Or continue with
-            </Text>
-            <Button
-              w="full"
-              leftIcon={<FaGithub />}
-              bg="whiteAlpha.100"
-              color="white"
-              _hover={{ bg: 'whiteAlpha.200' }}
-            >
-              Continue with GitHub
-            </Button>
-            <Button
-              w="full"
-              leftIcon={<FaGoogle />}
-              bg="whiteAlpha.100"
-              color="white"
-              _hover={{ bg: 'whiteAlpha.200' }}
-            >
-              Continue with Google
-            </Button>
-          </VStack>
         </ModalBody>
       </ModalContent>
     </Modal>
   );
-};
-
-export default AuthModal; 
+} 

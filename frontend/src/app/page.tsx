@@ -21,6 +21,7 @@ import {
   DrawerContent,
   DrawerCloseButton,
   Icon,
+  Link as ChakraLink,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { FaGithub, FaSearch, FaUser, FaRobot } from 'react-icons/fa';
@@ -30,7 +31,6 @@ import Features from './components/Features';
 import HowItWorks from './components/HowItWorks';
 import SubscriptionPlans from './components/SubscriptionPlans';
 import Footer from './components/Footer';
-import AuthModal from './components/AuthModal';
 import CustomCursor from './components/CustomCursor';
 import dynamic from 'next/dynamic';
 
@@ -48,7 +48,6 @@ export default function Home() {
   const [analyzedRepo, setAnalyzedRepo] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const { 
     isOpen: isChatOpen, 
     onOpen: onChatOpen, 
@@ -60,54 +59,45 @@ export default function Home() {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!repoUrl) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a repository URL',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
+  e.preventDefault();
+  if (!repoUrl.trim()) {
+    toast({
+      title: 'Error',
+      description: 'Please enter a repository URL',
+      status: 'error',
+      duration: 3000,
+      isClosable: true,
+    });
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    // Optional: Validate GitHub URL format
+    const gitHubRegex = /^(https?:\/\/)?(www\.)?github\.com\/([a-zA-Z0-9\-]+)\/([a-zA-Z0-9\-._~!$&'()*+,;=:@/]+)/i;
+    if (!gitHubRegex.test(repoUrl)) {
+      throw new Error('Please enter a valid GitHub repository URL');
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repoUrl }),
-      });
+    // Store the repo URL in localStorage immediately
+    localStorage.setItem('analyzedRepo', repoUrl);
 
-      const data = await response.json();
+    // Navigate to chat without waiting for API call
+    router.push('/chat');
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to analyze repository');
-      }
-
-      if (data.success) {
-        // Store the repo URL in localStorage for the chat page
-        localStorage.setItem('analyzedRepo', repoUrl);
-        // Navigate to the chat page
-        router.push('/chat');
-      } else {
-        throw new Error(data.error || 'Failed to analyze repository');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to analyze repository',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } catch (error: any) {
+    toast({
+      title: 'Error',
+      description: error.message || 'Invalid GitHub repository URL',
+      status: 'error',
+      duration: 3000,
+      isClosable: true,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -138,6 +128,17 @@ export default function Home() {
       <Container maxW="container.xl" position="relative" zIndex={1}>
         <Flex justify="flex-end" py={4}>
           <HStack spacing={4}>
+            {/* Redirect Profile Icon to Login Page */}
+            <ChakraLink as="button" onClick={() => router.push('/login')}>
+              <IconButton
+                aria-label="Login"
+                icon={<FaUser />}
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'whiteAlpha.200' }}
+              />
+            </ChakraLink>
+
             {analyzedRepo && (
               <IconButton
                 aria-label="Open Chat"
@@ -148,14 +149,6 @@ export default function Home() {
                 _hover={{ bg: 'whiteAlpha.200' }}
               />
             )}
-            <IconButton
-              aria-label="Login"
-              icon={<FaUser />}
-              variant="ghost"
-              color="white"
-              onClick={onOpen}
-              _hover={{ bg: 'whiteAlpha.200' }}
-            />
           </HStack>
         </Flex>
 
@@ -241,7 +234,6 @@ export default function Home() {
       </Container>
 
       <Footer />
-      <AuthModal isOpen={isOpen} onClose={onClose} />
       
       <Drawer
         isOpen={isChatOpen}

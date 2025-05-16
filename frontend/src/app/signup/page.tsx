@@ -39,39 +39,58 @@ export default function Signup() {
   const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
 
-    try {
-      if (password !== confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-
-      if (!acceptTerms) {
-        throw new Error('Please accept the terms and conditions');
-      }
-
-      // TODO: Implement actual signup logic
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast({
-        title: 'Success',
-        description: 'Your account has been created successfully.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create account. Please try again.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
+  try {
+    if (password !== confirmPassword) {
+      throw new Error('Passwords do not match');
     }
-  };
+
+    if (!acceptTerms) {
+      throw new Error('Please accept the terms and conditions');
+    }
+
+    const response = await fetch('http://localhost:5000/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create account');
+    }
+
+    // Show success toast
+    toast({
+      title: 'Success',
+      description: 'Your account has been created successfully.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+
+    // Optionally redirect after a short delay
+    setTimeout(() => {
+      window.location.href = '/login'; // Redirect to login page
+    }, 1500);
+
+  } catch (error: any) {
+    toast({
+      title: 'Error',
+      description: error.message || 'An unexpected error occurred.',
+      status: 'error',
+      duration: 3000,
+      isClosable: true,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <Box minH="100vh" position="relative">

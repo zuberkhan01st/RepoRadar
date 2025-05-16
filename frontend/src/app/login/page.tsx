@@ -35,31 +35,57 @@ export default function Login() {
   const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
 
-    try {
-      // TODO: Implement actual login logic
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast({
-        title: 'Success',
-        description: 'You have been logged in successfully.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to log in. Please try again.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsLoading(false);
+  try {
+    const response = await fetch('http://localhost:5000/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to log in');
     }
-  };
+
+    // ✅ Save token to localStorage
+    if (data.token) {
+      localStorage.setItem('token', data.token); // Save JWT token
+    } else {
+      throw new Error('No token received from server');
+    }
+
+    // Show success toast
+    toast({
+      title: 'Success',
+      description: 'You have been logged in successfully.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+
+    // Redirect after short delay
+    setTimeout(() => {
+      window.location.href = '/chat';
+    }, 1500);
+
+  } catch (error: any) {
+    toast({
+      title: 'Error',
+      description: error.message || 'An unexpected error occurred.',
+      status: 'error',
+      duration: 3000,
+      isClosable: true,
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <Box minH="100vh" position="relative">

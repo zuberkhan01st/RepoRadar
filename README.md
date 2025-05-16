@@ -32,7 +32,7 @@ RepoRadar is an intelligent GitHub repository analysis tool that helps developer
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/RepoRadar.git
+git clone https://github.com/zuberkhan01st/RepoRadar.git
 cd RepoRadar
 ```
 

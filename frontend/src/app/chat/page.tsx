@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -14,6 +13,7 @@ import {
   HStack,
   Avatar,
   Divider,
+  
   Button,
   Tooltip,
   Menu,
@@ -54,15 +54,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
-import type { Components } from 'react-markdown';
-
-interface CodeProps {
-  node?: any;
-  inline?: boolean;
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
+import { useState, useRef, useEffect } from 'react';
 
 const MotionBox = motion(Box);
 
@@ -84,8 +76,8 @@ export default function ChatPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { hasCopied, onCopy } = useClipboard('');
 
+  // Load repo URL from localStorage
   useEffect(() => {
-    // Get the analyzed repository from localStorage
     const storedRepoUrl = localStorage.getItem('analyzedRepo');
     if (!storedRepoUrl) {
       router.push('/');
@@ -93,7 +85,6 @@ export default function ChatPage() {
     }
     setRepoUrl(storedRepoUrl);
 
-    // Add initial greeting message with repo info
     const [owner, repo] = storedRepoUrl.split('/').slice(-2);
     setMessages([
       {
@@ -105,49 +96,93 @@ export default function ChatPage() {
     ]);
   }, [router]);
 
+  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput('');
+    setIsLoading(true);
+
+    // Add user message
     setMessages((prev) => [
       ...prev,
       { role: 'user', content: userMessage, timestamp: new Date(), type: 'text' },
     ]);
-    setIsLoading(true);
+
+    // Add temporary thinking message
+    const tempMsgId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempMsgId,
+        role: 'assistant',
+        content: 'Thinking...',
+        timestamp: new Date(),
+        type: 'text',
+      },
+    ]);
 
     try {
-      const response = await fetch('/api/chat', {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Authentication token missing');
+
+
+      const response = await fetch('http://localhost:5000/user/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          message: userMessage,
-          repoUrl,
-        }),
+        body: JSON.stringify({ question: userMessage, repoUrl }),
+        
       });
+      console.log(repoUrl);
 
       if (!response.ok) {
-        throw new Error('Failed to get response from AI');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to get response from AI');
       }
 
       const data = await response.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: data.message, timestamp: new Date(), type: 'text' },
-      ]);
+
+      // Clean up final response
+      let finalResponse = data.message || 'No response from AI';
+      try {
+        const parsed = JSON.parse(finalResponse);
+        if (parsed.response) finalResponse = parsed.response;
+      } catch {}
+
+      finalResponse = finalResponse.replace(/^\[Bot\]|\[Bot\]/g, '').trim();
+
+      // Replace thinking message with real one
+      setMessages((prev) =>
+        prev
+          .filter((msg) => msg.id !== tempMsgId)
+          .concat([
+            {
+              role: 'assistant',
+              content: finalResponse,
+              timestamp: new Date(),
+              type: 'text',
+            },
+          ])
+      );
     } catch (error: any) {
+      // Remove thinking message
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempMsgId));
+
       toast({
         title: 'Error',
         description: error?.message || 'Failed to get response from AI',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
     } finally {
@@ -156,10 +191,11 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
+    const [owner, repo] = repoUrl.split('/').slice(-2);
     setMessages([
       {
         role: 'assistant',
-        content: "Chat history cleared. How can I help you?",
+        content: `Chat history cleared. How can I help you with ${owner}/${repo}?`,
         timestamp: new Date(),
         type: 'text',
       },
@@ -179,11 +215,7 @@ export default function ChatPage() {
               const match = /language-(\w+)/.exec(className || '');
               return match ? (
                 <Box position="relative">
-                  <SyntaxHighlighter
-                    style={vscDarkPlus as any}
-                    language={match[1]}
-                    PreTag="div"
-                  >
+                  <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div">
                     {String(children).replace(/\n$/, '')}
                   </SyntaxHighlighter>
                   <IconButton
@@ -218,9 +250,7 @@ export default function ChatPage() {
     return <Text fontWeight="medium">{message.content}</Text>;
   };
 
-  if (!repoUrl) {
-    return null; // or a loading state
-  }
+  if (!repoUrl) return null;
 
   return (
     <Box minH="100vh" bg="gray.900" color="white">
@@ -283,7 +313,6 @@ export default function ChatPage() {
               </Menu>
             </HStack>
           </Flex>
-
           <Divider borderColor="whiteAlpha.200" />
 
           {/* Repository Info */}
@@ -392,15 +421,10 @@ export default function ChatPage() {
                       borderColor={message.role === 'user' ? 'brand.400' : 'whiteAlpha.200'}
                     >
                       <HStack spacing={2} mb={2}>
-                        {message.type === 'code' && <FaCode />}
-                        {message.type === 'analysis' && <FaChartBar />}
                         {renderMessage(message)}
                       </HStack>
-                      <Text
-                        fontSize="xs"
-                        color={message.role === 'user' ? 'whiteAlpha.800' : 'whiteAlpha.500'}
-                      >
-                        {message.timestamp.toLocaleTimeString()}
+                      <Text fontSize="xs" color={message.role === 'user' ? 'whiteAlpha.800' : 'whiteAlpha.500'}>
+                        {new Date(message.timestamp).toLocaleTimeString()}
                       </Text>
                     </Box>
                     {message.role === 'user' && (
@@ -469,4 +493,4 @@ export default function ChatPage() {
       </Modal>
     </Box>
   );
-} 
+}

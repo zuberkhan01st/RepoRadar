@@ -6,7 +6,9 @@ const bcrypt = require('bcryptjs'); // ✅ Proper import
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).send("User already exists");

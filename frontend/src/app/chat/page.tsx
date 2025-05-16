@@ -13,7 +13,6 @@ import {
   HStack,
   Avatar,
   Divider,
-  
   Button,
   Tooltip,
   Menu,
@@ -41,6 +40,7 @@ import {
   FaLightbulb,
   FaHistory,
   FaTrash,
+  FaSignOutAlt,
   FaFileCode,
   FaChartBar,
   FaQuestionCircle,
@@ -59,6 +59,7 @@ import { useState, useRef, useEffect } from 'react';
 const MotionBox = motion(Box);
 
 interface Message {
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
@@ -84,7 +85,6 @@ export default function ChatPage() {
       return;
     }
     setRepoUrl(storedRepoUrl);
-
     const [owner, repo] = storedRepoUrl.split('/').slice(-2);
     setMessages([
       {
@@ -105,7 +105,6 @@ export default function ChatPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-
     const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
@@ -133,7 +132,6 @@ export default function ChatPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Authentication token missing');
 
-
       const response = await fetch('http://localhost:5000/user/chat', {
         method: 'POST',
         headers: {
@@ -141,9 +139,7 @@ export default function ChatPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ question: userMessage, repoUrl }),
-        
       });
-      console.log(repoUrl);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -158,7 +154,6 @@ export default function ChatPage() {
         const parsed = JSON.parse(finalResponse);
         if (parsed.response) finalResponse = parsed.response;
       } catch {}
-
       finalResponse = finalResponse.replace(/^\[Bot\]|\[Bot\]/g, '').trim();
 
       // Replace thinking message with real one
@@ -175,9 +170,7 @@ export default function ChatPage() {
           ])
       );
     } catch (error: any) {
-      // Remove thinking message
       setMessages((prev) => prev.filter((msg) => msg.id !== tempMsgId));
-
       toast({
         title: 'Error',
         description: error?.message || 'Failed to get response from AI',
@@ -202,60 +195,105 @@ export default function ChatPage() {
     ]);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('analyzedRepo');
+    toast({
+      title: 'Logged out',
+      description: 'You have been successfully logged out.',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+    router.push('/');
+  };
+
   const renderMessage = (message: Message) => {
     const isCodeBlock = message.content.includes('```');
     const isMarkdown = message.content.includes('*') || message.content.includes('#') || message.content.includes('`');
 
     if (isCodeBlock || isMarkdown) {
       return (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            code: ({ className, children }) => {
-              const match = /language-(\w+)/.exec(className || '');
-              return match ? (
-                <Box position="relative">
-                  <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div">
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                  <IconButton
-                    aria-label="Copy code"
-                    icon={hasCopied ? <FaCheck /> : <FaCopy />}
-                    size="sm"
-                    position="absolute"
-                    top={2}
-                    right={2}
-                    onClick={() => {
-                      onCopy(String(children));
-                      toast({
-                        title: 'Copied!',
-                        status: 'success',
-                        duration: 2000,
-                        isClosable: true,
-                      });
-                    }}
-                  />
-                </Box>
-              ) : (
-                <Code>{children}</Code>
-              );
-            },
-          }}
-        >
-          {message.content}
-        </ReactMarkdown>
+        <Box w="full" overflowX="auto">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code: ({ node, inline, className, children, ...props }) => {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <Box position="relative" w="full">
+                    <SyntaxHighlighter 
+                      style={vscDarkPlus} 
+                      language={match[1]} 
+                      PreTag="div"
+                      customStyle={{
+                        margin: 0,
+                        borderRadius: '0.5rem',
+                        padding: '1rem',
+                        background: '#1E1E1E',
+                      }}
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                    <IconButton
+                      aria-label="Copy code"
+                      icon={hasCopied ? <FaCheck /> : <FaCopy />}
+                      size="sm"
+                      position="absolute"
+                      top={2}
+                      right={2}
+                      onClick={() => {
+                        onCopy(String(children));
+                        toast({
+                          title: 'Copied!',
+                          status: 'success',
+                          duration: 2000,
+                          isClosable: true,
+                        });
+                      }}
+                    />
+                  </Box>
+                ) : (
+                  <Code p={1} borderRadius="md" bg="gray.700" color="white">
+                    {children}
+                  </Code>
+                );
+              },
+              p: ({ node, ...props }) => <Text mb={2} {...props} />,
+              h1: ({ node, ...props }) => <Heading as="h1" size="xl" my={4} {...props} />,
+              h2: ({ node, ...props }) => <Heading as="h2" size="lg" my={3} {...props} />,
+              h3: ({ node, ...props }) => <Heading as="h3" size="md" my={2} {...props} />,
+              ul: ({ node, ...props }) => <Box as="ul" pl={6} mb={4} {...props} />,
+              ol: ({ node, ...props }) => <Box as="ol" pl={6} mb={4} {...props} />,
+              li: ({ node, ...props }) => <Box as="li" pb={1} {...props} />,
+              blockquote: ({ node, ...props }) => (
+                <Box
+                  borderLeft="4px solid"
+                  borderColor="brand.400"
+                  pl={4}
+                  py={1}
+                  my={2}
+                  bg="whiteAlpha.100"
+                  {...props}
+                />
+              ),
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Box>
       );
     }
 
-    return <Text fontWeight="medium">{message.content}</Text>;
+    return <Text whiteSpace="pre-wrap">{message.content}</Text>;
   };
 
   if (!repoUrl) return null;
 
   return (
     <Box minH="100vh" bg="gray.900" color="white">
-      <Container maxW="container.xl" h="100vh" py={4}>
-        <VStack h="full" spacing={4}>
+      <Container maxW="container.xl" h="100vh" py={4} px={0}>
+        <VStack h="full" spacing={4} px={4}>
           {/* Header */}
           <Flex w="full" justify="space-between" align="center" py={2}>
             <HStack spacing={4}>
@@ -279,10 +317,23 @@ export default function ChatPage() {
                 />
               </Tooltip>
             </HStack>
+
             <Heading size="md" bgGradient="linear(to-r, brand.400, accent.400)" bgClip="text">
               RepoRadar AI Assistant
             </Heading>
+
             <HStack spacing={2}>
+              <Tooltip label="Logout">
+                <IconButton
+                  aria-label="Logout"
+                  icon={<FaSignOutAlt />}
+                  variant="ghost"
+                  color="red.300"
+                  _hover={{ bg: 'red.900' }}
+                  onClick={handleLogout}
+                />
+              </Tooltip>
+
               <Tooltip label="Settings">
                 <IconButton
                   aria-label="Settings"
@@ -293,6 +344,7 @@ export default function ChatPage() {
                   onClick={onOpen}
                 />
               </Tooltip>
+
               <Menu>
                 <MenuButton
                   as={IconButton}
@@ -348,30 +400,15 @@ export default function ChatPage() {
                     />
                   </Tooltip>
                 </HStack>
-                <HStack spacing={4}>
-                  <HStack spacing={1}>
-                    <FaFileCode />
-                    <Text fontSize="sm" color="whiteAlpha.700">Code Analysis</Text>
-                  </HStack>
-                  <HStack spacing={1}>
-                    <FaChartBar />
-                    <Text fontSize="sm" color="whiteAlpha.700">Repository Stats</Text>
-                  </HStack>
-                  <HStack spacing={1}>
-                    <FaLightbulb />
-                    <Text fontSize="sm" color="whiteAlpha.700">AI Insights</Text>
-                  </HStack>
-                </HStack>
               </VStack>
             </HStack>
           </Box>
 
           {/* Chat Messages */}
-          <VStack
+          <Box
             flex={1}
             w="full"
             overflowY="auto"
-            spacing={4}
             px={4}
             py={2}
             css={{
@@ -387,69 +424,66 @@ export default function ChatPage() {
               },
             }}
           >
-            <AnimatePresence>
-              {messages.map((message, index) => (
-                <MotionBox
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                  w="full"
-                >
-                  <Flex
-                    justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
-                    align="start"
-                    gap={3}
+            <VStack spacing={4} align="stretch" w="full">
+              <AnimatePresence>
+                {messages.map((message, index) => (
+                  <MotionBox
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    w="full"
                   >
-                    {message.role === 'assistant' && (
-                      <Avatar
-                        size="sm"
-                        icon={<FaRobot />}
-                        bg="brand.500"
-                        color="white"
-                      />
-                    )}
-                    <Box
-                      maxW="70%"
-                      bg={message.role === 'user' ? 'brand.500' : 'gray.800'}
-                      color={message.role === 'user' ? 'white' : 'whiteAlpha.900'}
-                      p={4}
-                      borderRadius="lg"
-                      boxShadow="lg"
-                      borderWidth={1}
-                      borderColor={message.role === 'user' ? 'brand.400' : 'whiteAlpha.200'}
+                    <Flex
+                      justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
+                      align="flex-start"
+                      gap={3}
+                      w="full"
                     >
-                      <HStack spacing={2} mb={2}>
+                      {message.role === 'assistant' && (
+                        <Avatar
+                          size="sm"
+                          icon={<FaRobot />}
+                          bg="brand.500"
+                          color="white"
+                        />
+                      )}
+                      <Box
+                        maxW={{ base: '90%', md: '80%', lg: '70%' }}
+                        minW="120px"
+                        bg={message.role === 'user' ? 'brand.500' : 'gray.800'}
+                        color={message.role === 'user' ? 'white' : 'whiteAlpha.900'}
+                        p={4}
+                        borderRadius="lg"
+                        boxShadow="lg"
+                        borderWidth={1}
+                        borderColor={message.role === 'user' ? 'brand.400' : 'whiteAlpha.200'}
+                        overflow="hidden"
+                      >
                         {renderMessage(message)}
-                      </HStack>
-                      <Text fontSize="xs" color={message.role === 'user' ? 'whiteAlpha.800' : 'whiteAlpha.500'}>
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </Text>
-                    </Box>
-                    {message.role === 'user' && (
-                      <Avatar
-                        size="sm"
-                        icon={<FaUser />}
-                        bg="gray.500"
-                        color="white"
-                      />
-                    )}
-                  </Flex>
-                </MotionBox>
-              ))}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </VStack>
+                        <Text 
+                          fontSize="xs" 
+                          mt={2}
+                          textAlign="right"
+                          color={message.role === 'user' ? 'whiteAlpha.800' : 'whiteAlpha.500'}
+                        >
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </Text>
+                      </Box>
+                      {message.role === 'user' && (
+                        <Avatar size="sm" icon={<FaUser />} bg="gray.500" color="white" />
+                      )}
+                    </Flex>
+                  </MotionBox>
+                ))}
+              </AnimatePresence>
+              <div ref={messagesEndRef} />
+            </VStack>
+          </Box>
 
           {/* Input Area */}
-          <Box
-            w="full"
-            p={4}
-            borderTopWidth={1}
-            borderColor="whiteAlpha.200"
-            bg="gray.800"
-          >
+          <Box w="full" p={4} borderTopWidth={1} borderColor="whiteAlpha.200" bg="gray.800">
             <form onSubmit={handleSubmit}>
               <Flex gap={2}>
                 <Input
@@ -486,9 +520,7 @@ export default function ChatPage() {
         <ModalContent bg="gray.800" color="white">
           <ModalHeader>Settings</ModalHeader>
           <ModalCloseButton />
-          <ModalBody pb={6}>
-            {/* Add settings options here */}
-          </ModalBody>
+          <ModalBody pb={6}></ModalBody>
         </ModalContent>
       </Modal>
     </Box>

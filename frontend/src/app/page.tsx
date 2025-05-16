@@ -84,7 +84,13 @@ export default function Home() {
     localStorage.setItem('analyzedRepo', repoUrl);
 
     // Navigate to chat without waiting for API call
-    router.push('/chat');
+    if(localStorage.getItem('token')){
+      router.push('/chat');
+    }
+    else{
+      router.push('/login');
+    }
+    //router.push('/chat');
 
   } catch (error: any) {
     toast({
@@ -128,16 +134,15 @@ export default function Home() {
       <Container maxW="container.xl" position="relative" zIndex={1}>
         <Flex justify="flex-end" py={4}>
           <HStack spacing={4}>
-            {/* Redirect Profile Icon to Login Page */}
-            <ChakraLink as="button" onClick={() => router.push('/login')}>
-              <IconButton
-                aria-label="Login"
-                icon={<FaUser />}
-                variant="ghost"
-                color="white"
-                _hover={{ bg: 'whiteAlpha.200' }}
-              />
-            </ChakraLink>
+            {/* Profile Icon - Fixed to avoid nested buttons */}
+            <IconButton
+              aria-label="Login"
+              icon={<FaUser />}
+              variant="ghost"
+              color="white"
+              _hover={{ bg: 'whiteAlpha.200' }}
+              onClick={() => router.push('/login')}
+            />
 
             {analyzedRepo && (
               <IconButton

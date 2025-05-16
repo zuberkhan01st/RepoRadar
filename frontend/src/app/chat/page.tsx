@@ -132,7 +132,7 @@ export default function ChatPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Authentication token missing');
 
-      const response = await fetch('http://localhost:5000/user/chat', {
+      const response = await fetch('https://reporadar-03fy.onrender.com/user/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

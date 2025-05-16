@@ -214,78 +214,50 @@ export default function ChatPage() {
 
     if (isCodeBlock || isMarkdown) {
       return (
-        <Box w="full" overflowX="auto">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code: ({ node, inline, className, children, ...props }) => {
-                const match = /language-(\w+)/.exec(className || '');
-                return !inline && match ? (
-                  <Box position="relative" w="full">
-                    <SyntaxHighlighter 
-                      style={vscDarkPlus} 
-                      language={match[1]} 
-                      PreTag="div"
-                      customStyle={{
-                        margin: 0,
-                        borderRadius: '0.5rem',
-                        padding: '1rem',
-                        background: '#1E1E1E',
-                      }}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                    <IconButton
-                      aria-label="Copy code"
-                      icon={hasCopied ? <FaCheck /> : <FaCopy />}
-                      size="sm"
-                      position="absolute"
-                      top={2}
-                      right={2}
-                      onClick={() => {
-                        onCopy(String(children));
-                        toast({
-                          title: 'Copied!',
-                          status: 'success',
-                          duration: 2000,
-                          isClosable: true,
-                        });
-                      }}
-                    />
-                  </Box>
-                ) : (
-                  <Code p={1} borderRadius="md" bg="gray.700" color="white">
-                    {children}
-                  </Code>
-                );
-              },
-              p: ({ node, ...props }) => <Text mb={2} {...props} />,
-              h1: ({ node, ...props }) => <Heading as="h1" size="xl" my={4} {...props} />,
-              h2: ({ node, ...props }) => <Heading as="h2" size="lg" my={3} {...props} />,
-              h3: ({ node, ...props }) => <Heading as="h3" size="md" my={2} {...props} />,
-              ul: ({ node, ...props }) => <Box as="ul" pl={6} mb={4} {...props} />,
-              ol: ({ node, ...props }) => <Box as="ol" pl={6} mb={4} {...props} />,
-              li: ({ node, ...props }) => <Box as="li" pb={1} {...props} />,
-              blockquote: ({ node, ...props }) => (
-                <Box
-                  borderLeft="4px solid"
-                  borderColor="brand.400"
-                  pl={4}
-                  py={1}
-                  my={2}
-                  bg="whiteAlpha.100"
-                  {...props}
-                />
-              ),
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </Box>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code: ({ className, children }) => {
+              const match = /language-(\w+)/.exec(className || '');
+              return match ? (
+                <Box position="relative" w="full">
+                  <SyntaxHighlighter
+                    style={vscDarkPlus as any}
+                    language={match[1]}
+                    PreTag="div"
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                  <IconButton
+                    aria-label="Copy code"
+                    icon={hasCopied ? <FaCheck /> : <FaCopy />}
+                    size="sm"
+                    position="absolute"
+                    top={2}
+                    right={2}
+                    onClick={() => {
+                      onCopy(String(children));
+                      toast({
+                        title: 'Copied!',
+                        status: 'success',
+                        duration: 2000,
+                        isClosable: true,
+                      });
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Code>{children}</Code>
+              );
+            },
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
       );
     }
 
-    return <Text whiteSpace="pre-wrap">{message.content}</Text>;
+    return <Text fontWeight="medium">{message.content}</Text>;
   };
 
   if (!repoUrl) return null;

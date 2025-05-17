@@ -3,4 +3,4 @@ gitingest
 aiohttp 
 Flask-CORS
 python-dotenv
-
+gunicorn

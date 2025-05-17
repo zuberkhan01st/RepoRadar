@@ -81,6 +81,13 @@ async def check_repo_exists(repo_url: str) -> bool:
             if os.getenv("GITHUB_TOKEN"):
                 headers["Authorization"] = f"token {os.getenv('GITHUB_TOKEN')}"
             async with session.get(api_url, headers=headers) as response:
+                logger.debug(f"GitHub API response for {api_url}: status={response.status}")
+                if response.status != 200:
+                    try:
+                        error_data = await response.json()
+                        logger.error(f"GitHub API error: {json.dumps(error_data, indent=2)}")
+                    except Exception:
+                        logger.error(f"GitHub API non-JSON error: {await response.text()}")
                 return response.status == 200
         except Exception as e:
             logger.error(f"Error checking repo {repo_url}: {e}")
@@ -303,6 +310,7 @@ async def analyze():
     try:
         data = request.get_json()
         repo_url = data.get("repoUrl")
+        print(repo_url)
         
         if not repo_url:
             return jsonify({"error": "Repository URL is required"}), 400

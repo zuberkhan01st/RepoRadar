@@ -1,0 +1,6 @@
+Flask 
+gitingest
+aiohttp 
+Flask-CORS
+python-dotenv
+

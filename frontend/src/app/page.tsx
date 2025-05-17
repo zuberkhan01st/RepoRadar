@@ -221,6 +221,7 @@ export default function Home() {
 
           <MotionBox variants={itemVariants}>
             <HStack spacing={4} justify="center">
+              <ChakraLink rel="stylesheet" href="https://github.com/zuberkhan01st/RepoRadar" >
               <Button
                 leftIcon={<FaGithub />}
                 variant="outline"
@@ -229,6 +230,7 @@ export default function Home() {
               >
                 View on GitHub
               </Button>
+              </ChakraLink>
             </HStack>
           </MotionBox>
         </VStack>

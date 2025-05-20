@@ -3,107 +3,117 @@ const { error } = require('console');
 const User = require('../models/User');
 const githubService = require('../services/githubService');
 const groqService = require('../services/groqService');
-//const gitingestService = require('../services/gitingestService');
 const Chat = require('../models/Chat');
-const sanitize = require('sanitize-html'); // Optional: for sanitizing inputs
+const sanitize = require('sanitize-html');
+const axios = require('axios');
+
+// Helper function for consistent error responses
+const sendErrorResponse = (res, statusCode, message, error = null) => {
+  console.error(`Error: ${message}`, error);
+  return res.status(statusCode).json({
+    success: false,
+    message,
+    ...(error && { error: error.message })
+  });
+};
+
+// Helper function for successful responses
+const sendSuccessResponse = (res, data, message = 'Success') => {
+  return res.status(200).json({
+    success: true,
+    message,
+    data
+  });
+};
 
 // Must export getMe
 exports.getMe = async (req, res) => {
   try {
-
-    const id = req.user.id;
-
-    const user = await User.findById(id).select('-password');
-    res.json(user);
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return sendErrorResponse(res, 404, 'User not found');
+    }
+    return sendSuccessResponse(res, { user });
   } catch (err) {
-    res.status(500).json({ error: 'Server Error' });
+    return sendErrorResponse(res, 500, 'Failed to fetch user details', err);
   }
 };
 
-exports.check = async (req,res)=>{
-  try{
+exports.check = async (req, res) => {
+  try {
     const response = await groqService.queryLLM("Hi");
-    console.log(response);
-    return res.json(response);
+    return sendSuccessResponse(res, { response });
+  } catch (err) {
+    return sendErrorResponse(res, 500, 'LLM query failed', err);
   }
-  catch(err){
-    res.status(500).json({error: err.message});
-  }
-}
+};
 
 exports.getRepos = async (req, res) => {
   try {
     const { username } = req.body;
-
-    if (!username) {
-      return res.status(400).json({ message: "No username is passed!" });
+    if (!username?.trim()) {
+      return sendErrorResponse(res, 400, 'Username is required');
     }
 
-    const repos = await githubService.getUserRepos(username); // 🛠️ added 'await'
-
-    return res.json({ message: "Fetched!", repos });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const repos = await githubService.getUserRepos(username);
+    return sendSuccessResponse(res, { repos }, 'Repositories fetched successfully');
+  } catch (err) {
+    return sendErrorResponse(res, 500, 'Failed to fetch repositories', err);
   }
 };
 
-exports.getRepo = async (req,res)=>{
-  try{
-    const {username, repo} = req.body;
-    if(!username|| !repo){
-      return res.status(400).json("Please provide the username and repo name");
+exports.getRepo = async (req, res) => {
+  try {
+    const { username, repo } = req.body;
+    if (!username?.trim() || !repo?.trim()) {
+      return sendErrorResponse(res, 400, 'Username and repository name are required');
     }
-      const info = await githubService.getRepoInfo(username, repo);
 
-      if(!info){
-        return res.status(404).json({message:"Error Fetching data"});
-      }
+    const info = await githubService.getRepoInfo(username, repo);
+    if (!info) {
+      return sendErrorResponse(res, 404, 'Repository not found');
+    }
 
-      return res.status(200).json({info});
-    }  
-     catch(err){
-    return res.status(500).json({message: err.message});
+    return sendSuccessResponse(res, { info }, 'Repository information fetched successfully');
+  } catch (err) {
+    return sendErrorResponse(res, 500, 'Failed to fetch repository information', err);
   }
 };
 
-exports.createIssue = async (req,res)=>{
-  try{
-    const {owner,repo,title,body} = req.body;
-    if(!owner|| !repo || !title || !body){
-      return res.status(400).json({message: "Give all the values!"});
-
+exports.createIssue = async (req, res) => {
+  try {
+    const { owner, repo, title, body } = req.body;
+    if (!owner || !repo || !title || !body) {
+      return sendErrorResponse(res, 400, 'Provide all the values!');
     }
 
-    const data = await githubService.createIssue(owner,repo,title,body);
+    const data = await githubService.createIssue(owner, repo, title, body);
 
-    if(!data){
-      return res.json({message: "No data!"});
+    if (!data) {
+      return sendErrorResponse(res, 404, 'No data!');
     }
 
-    return res.status(200).json({message: "Done adding the issue!",data});
-
-  }
-  catch(err){
-    return res.status(500).json({error: err.message});
+    return sendSuccessResponse(res, { data }, 'Issue created successfully');
+  } catch (err) {
+    return sendErrorResponse(res, 500, 'Failed to create issue', err);
   }
 };
 
-exports.getLatestContributors = async (req,res)=>{
-  try{
-    const {owner,repo} = req.body;
+exports.getLatestContributors = async (req, res) => {
+  try {
+    const { owner, repo } = req.body;
 
-    if(!owner || !repo) return res.json({message: "Provide the owner and repo!"});
+    if (!owner || !repo) return sendErrorResponse(res, 400, 'Provide the owner and repo!');
 
-    const data = await githubService.getLatestCommitContributors(owner,repo);
+    const data = await githubService.getLatestCommitContributors(owner, repo);
 
-    if(!data){
-      return res.status(404).json({message: "Nothings found!"});
+    if (!data) {
+      return sendErrorResponse(res, 404, 'Nothing found!');
     }
 
-    return res.status(200).json({message: data});
-  }
-  catch(err){
-    return res.json({error: err.message});
+    return sendSuccessResponse(res, { contributors: data }, 'Contributors fetched successfully');
+  } catch (err) {
+    return sendErrorResponse(res, 500, 'Failed to fetch contributors', err);
   }
 };
 
@@ -113,36 +123,33 @@ exports.getRepoTreeStructure = async (req, res) => {
 
     // Check if owner or repo is missing
     if (!owner || !repo) {
-      return res.status(400).json({ message: "Owner or repository name is missing!" });
+      return sendErrorResponse(res, 400, 'Owner or repository name is missing!');
     }
 
     // Fetch the repository structure using the previously defined method
     const repoStructure = await githubService.getRepoStructure(owner, repo, branch);
 
-    return res.json({ message: "Fetched repo structure!", repoStructure });
+    return sendSuccessResponse(res, { repoStructure }, 'Fetched repo structure');
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return sendErrorResponse(res, 500, 'Failed to fetch repo structure', error);
   }
 };
-
-
-
 
 exports.getAllContributors = async (req, res) => {
   try {
     const { owner, repo } = req.body;
-
-    if (!owner || !repo) return res.json({ message: "Provide the owner and repo!" });
-
-    const data = await githubService.getLatestCommitContributors(owner, repo);
-
-    if (!data) {
-      return res.status(404).json({ message: "Nothings found!" });
+    if (!owner?.trim() || !repo?.trim()) {
+      return sendErrorResponse(res, 400, 'Owner and repository name are required');
     }
 
-    return res.status(200).json({ message: data });
+    const data = await githubService.getLatestCommitContributors(owner, repo);
+    if (!data) {
+      return sendErrorResponse(res, 404, 'No contributors found');
+    }
+
+    return sendSuccessResponse(res, { contributors: data }, 'Contributors fetched successfully');
   } catch (err) {
-    return res.json({ error: err.message });
+    return sendErrorResponse(res, 500, 'Failed to fetch contributors', err);
   }
 };
 
@@ -169,14 +176,13 @@ const parseGitHubUrl = (url) => {
 exports.chatAboutRepo = async (req, res) => {
   try {
     const { question, repoUrl, additionalParams = {} } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
-    // Validate input
-    if (!question || !repoUrl) {
-      return res.status(400).json({ message: "Question and repository URL are required" });
+    if (!question?.trim() || !repoUrl?.trim()) {
+      return sendErrorResponse(res, 400, 'Question and repository URL are required');
     }
     if (!userId) {
-      return res.status(401).json({ message: "User authentication required" });
+      return sendErrorResponse(res, 401, 'User authentication required');
     }
 
     // Parse the repository URL
@@ -246,8 +252,29 @@ exports.chatAboutRepo = async (req, res) => {
       },
       getcodestructure: {
         label: 'Code Structure',
-        handler: () => githubService.getRepoTreeStructure(sanitizedOwner, sanitizedRepo)
+        handler: async () => {
+          try {
+            const response = await fetch('http://localhost:5001/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ repoUrl }),
+              timeout: 5000 // 5 second timeout
+            });
+    
+            if (!response.ok) {
+              throw new Error(`Flask backend responded with status ${response.status}`);
+            }
+    
+            const data = await response.json();
+            return data;
+          } catch (error) {
+            console.error('Flask backend error:', error);
+            // Fallback to GitHub API if Flask fails
+            return githubService.getRepoContent(sanitizedOwner, sanitizedRepo);
+          }
+        }
       },
+    
       createissue: {
         label: 'Created Issue',
         handler: () => {
@@ -284,9 +311,33 @@ exports.chatAboutRepo = async (req, res) => {
       },
       getrepoinfo: {
         label: 'Repository Information',
-        handler: () => ({
-          message: `Use this owner: ${owner} and repo: ${repo}`
-        })
+        handler: async () => {
+          try {
+            // First try GitHub API directly
+            //const repoInfo = await githubService.getRepoInfo(sanitizedOwner, sanitizedRepo);
+            
+            // If you need additional analysis from Flask:
+            try {
+              const response = await fetch('http://localhost:5001/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ repoUrl }),
+                timeout: 5000
+              });
+    
+              if (response.ok) {
+                const flaskData = await response.json();
+                return { ...repoUrl, analysis: flaskData };
+              }
+            } catch (flaskError) {
+              console.error('Flask analysis failed, using GitHub data only:', flaskError);
+            }
+    
+            return repoInfo;
+          } catch (error) {
+            throw new Error(`Failed to get repository info: ${error.message}`);
+          }
+        }
       },
       notool: {
         label: 'General Question',
@@ -297,6 +348,8 @@ exports.chatAboutRepo = async (req, res) => {
     const selectedHandler = toolHandlers[selectedTool] || toolHandlers.notool;
     dataLabel = selectedHandler.label;
     githubData = await selectedHandler.handler();
+    //console.log("githubData");
+    //console.log(githubData);
     const formattedGithubData = JSON.stringify(githubData, null, 2);
 
     // Fetch chat history (last 5 messages for this user and repo)
@@ -309,6 +362,7 @@ exports.chatAboutRepo = async (req, res) => {
       .lean();
 
     // Final response prompt
+    //console.log(formattedGithubData);
     const finalPrompt = `
       You are an expert GitHub assistant providing accurate and helpful responses.
       
@@ -376,9 +430,6 @@ exports.chatAboutRepo = async (req, res) => {
       stack: err.stack,
       userId: req.user?.id
     });
-    return res.status(500).json({
-      error: err.message || 'An unexpected error occurred',
-      code: err.code || 'INTERNAL_SERVER_ERROR'
-    });
+    return sendErrorResponse(res, 500, 'Chat processing failed', err);
   }
 };

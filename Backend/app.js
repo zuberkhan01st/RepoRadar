@@ -8,6 +8,8 @@ const cors = require('cors');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const analysisRoutes = require('./routes/analysisRoutes');
+const apicache = require('apicache');
 
 // Initialize Express
 const app = express();
@@ -25,6 +27,9 @@ const limiter = rateLimit({
   max: 1000 // limit each IP to 100 requests per windowMs
 });
 app.use(limiter);
+
+// Caching
+const cache = apicache.middleware;
 
 // Body Parsing
 app.use(express.json());
@@ -70,9 +75,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-
-
-
 app.get('/', async= (req,res) =>{
     console.log('Server is running...')
     res.status(200).json({
@@ -87,8 +89,16 @@ app.get('/', (req, res) => {
 });
 
 //Routes
-app.use('/auth',authRoutes);
-app.use('/user',userRoutes);
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+app.use('/analysis', analysisRoutes);
+
+// Apply rate limiting to all routes
+app.use('/api/', limiter);
+
+// Apply caching to specific routes
+app.use('/api/repos/', cache('5 minutes'));
+app.use('/api/contributors/', cache('10 minutes'));
 
 // 404 Handler
 

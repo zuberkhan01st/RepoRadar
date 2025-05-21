@@ -24,7 +24,7 @@ import {
   Link as ChakraLink,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
-import { FaGithub, FaSearch, FaUser, FaRobot } from 'react-icons/fa';
+import { FaGithub, FaSearch, FaUser, FaRobot, FaFlask, FaComments } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import AnimatedBackground from './components/AnimatedBackground';
 import Features from './components/Features';
@@ -43,9 +43,9 @@ const MotionBox = motion(Box);
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [analyzedRepo, setAnalyzedRepo] = useState<string | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
   const toast = useToast();
   const router = useRouter();
   const { 
@@ -59,51 +59,78 @@ export default function Home() {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!repoUrl.trim()) {
-    toast({
-      title: 'Error',
-      description: 'Please enter a repository URL',
-      status: 'error',
-      duration: 3000,
-      isClosable: true,
-    });
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    // Optional: Validate GitHub URL format
-    const gitHubRegex = /^(https?:\/\/)?(www\.)?github\.com\/([a-zA-Z0-9\-]+)\/([a-zA-Z0-9\-._~!$&'()*+,;=:@/]+)/i;
-    if (!gitHubRegex.test(repoUrl)) {
-      throw new Error('Please enter a valid GitHub repository URL');
+    e.preventDefault();
+    if (!repoUrl.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a repository URL',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setShowOptions(false);
+      return;
     }
 
-    // Store the repo URL in localStorage immediately
-    localStorage.setItem('analyzedRepo', repoUrl);
+    try {
+      const gitHubRegex = /^(https?:\/\/)?(www\.)?github\.com\/([a-zA-Z0-9\-]+)\/([a-zA-Z0-9\-._~!$&'()*+,;=:@/]+)/i;
+      if (!gitHubRegex.test(repoUrl)) {
+        throw new Error('Please enter a valid GitHub repository URL');
+      }
 
-    // Navigate to chat without waiting for API call
-    if(localStorage.getItem('token')){
-      router.push('/chat');
+      setShowOptions(true);
+      setAnalyzedRepo(repoUrl);
+      
+      setTimeout(() => {
+        const optionsElement = document.getElementById('repository-actions-container');
+        if (optionsElement) {
+          optionsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Invalid GitHub repository URL',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setShowOptions(false);
     }
-    else{
+  };
+
+  const handleAnalyzeRepository = () => {
+    if (!analyzedRepo) return;
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('lastAction', 'analysis');
+      localStorage.setItem('analyzedRepo', analyzedRepo);
       router.push('/login');
+      return;
     }
-    //router.push('/chat');
+    
+    // Store the repo and redirect to analysis page
+    localStorage.setItem('analyzedRepo', analyzedRepo);
+    router.push('/analysis');
+  };
 
-  } catch (error: any) {
-    toast({
-      title: 'Error',
-      description: error.message || 'Invalid GitHub repository URL',
-      status: 'error',
-      duration: 3000,
-      isClosable: true,
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const handleChatWithRepo = () => {
+    if (!analyzedRepo) return;
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('lastAction', 'chat');
+      localStorage.setItem('analyzedRepo', analyzedRepo);
+      router.push('/login');
+      return;
+    }
+    
+    router.push(`/chat?repo=${encodeURIComponent(analyzedRepo)}`);
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -134,7 +161,6 @@ export default function Home() {
       <Container maxW="container.xl" position="relative" zIndex={1}>
         <Flex justify="flex-end" py={4}>
           <HStack spacing={4}>
-            {/* Profile Icon - Fixed to avoid nested buttons */}
             <IconButton
               aria-label="Login"
               icon={<FaUser />}
@@ -211,7 +237,6 @@ export default function Home() {
                 type="submit"
                 colorScheme="brand"
                 size="lg"
-                isLoading={isLoading}
                 leftIcon={<FaSearch />}
               >
                 Analyze
@@ -219,17 +244,61 @@ export default function Home() {
             </HStack>
           </MotionBox>
 
+          {showOptions && analyzedRepo && (
+            <MotionBox
+              variants={itemVariants}
+              w="full"
+              maxW="2xl"
+              mt={8}
+              id="repository-actions-container"
+              borderWidth={1}
+              borderColor="whiteAlpha.200"
+              borderRadius="lg"
+              p={6}
+              bg="whiteAlpha.50"
+            >
+              <VStack spacing={4}>
+                <Text fontSize="lg" textAlign="center" color="whiteAlpha.900">
+                  Choose an action for: 
+                  <Text as="span" fontWeight="bold" color="brand.300" ml={2} display="block" whiteSpace="normal" wordBreak="break-all">
+                    {analyzedRepo}
+                  </Text>
+                </Text>
+                <HStack spacing={4} justify="center" w="full">
+                  <Button
+                    colorScheme="teal"
+                    size="lg"
+                    onClick={handleAnalyzeRepository}
+                    leftIcon={<FaFlask />}
+                    flex={1}
+                  >
+                    Analyze Repository
+                  </Button>
+                  <Button
+                    colorScheme="purple"
+                    size="lg"
+                    onClick={handleChatWithRepo}
+                    leftIcon={<FaComments />}
+                    flex={1}
+                  >
+                    Chat with Repo
+                  </Button>
+                </HStack>
+              </VStack>
+            </MotionBox>
+          )}
+
           <MotionBox variants={itemVariants}>
             <HStack spacing={4} justify="center">
-              <ChakraLink rel="stylesheet" href="https://github.com/zuberkhan01st/RepoRadar" >
-              <Button
-                leftIcon={<FaGithub />}
-                variant="outline"
-                color="white"
-                _hover={{ bg: 'whiteAlpha.200' }}
-              >
-                View on GitHub
-              </Button>
+              <ChakraLink href="https://github.com/zuberkhan01st/RepoRadar" isExternal>
+                <Button
+                  leftIcon={<FaGithub />}
+                  variant="outline"
+                  color="white"
+                  _hover={{ bg: 'whiteAlpha.200' }}
+                >
+                  View on GitHub
+                </Button>
               </ChakraLink>
             </HStack>
           </MotionBox>

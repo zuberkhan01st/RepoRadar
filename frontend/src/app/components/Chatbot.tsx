@@ -55,14 +55,14 @@ const Chatbot = ({ repoUrl }: ChatbotProps) => {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    try {
-      const response = await fetch('/api/chat', {
+    try {      const response = await fetch('https://reporadar-03fy.onrender.com/users/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          message: userMessage,
+          question: userMessage,
           repoUrl,
         }),
       });

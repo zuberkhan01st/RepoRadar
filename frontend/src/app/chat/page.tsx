@@ -132,7 +132,7 @@ export default function ChatPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Authentication token missing');
 
-      const response = await fetch('https://reporadar-03fy.onrender.com/user/chat', {
+      const response = await fetch('https://reporadar-03fy.onrender.com/users/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,13 +221,20 @@ export default function ChatPage() {
               const match = /language-(\w+)/.exec(className || '');
               return match ? (
                 <Box position="relative" w="full">
-                  <SyntaxHighlighter
-                    style={vscDarkPlus as any}
-                    language={match[1]}
-                    PreTag="div"
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
+                    <Box
+                    as="pre"
+                    bg="gray.900"
+                    color="white"
+                    p={4}
+                    borderRadius="md"
+                    overflowX="auto"
+                    fontSize="sm"
+                    fontFamily="mono"
+                    >
+                    <code>
+                      {String(children).replace(/\n$/, '')}
+                    </code>
+                    </Box>
                   <IconButton
                     aria-label="Copy code"
                     icon={hasCopied ? <FaCheck /> : <FaCopy />}

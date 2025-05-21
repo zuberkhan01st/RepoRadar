@@ -71,7 +71,14 @@ export default function Login() {
 
     // Redirect after short delay
     setTimeout(() => {
-      window.location.href = '/chat';
+      const lastAction = localStorage.getItem('lastAction');
+      if (lastAction === 'analysis') {
+        window.location.href = '/analysis';
+      } else if (lastAction === 'chat') {
+        window.location.href = '/chat';
+      } else {
+        window.location.href = '/';
+      }
     }, 1500);
 
   } catch (error: any) {

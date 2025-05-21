@@ -63,9 +63,7 @@ export default function Signup() {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to create account');
-    }
-
-    // Show success toast
+    }    // Show success toast
     toast({
       title: 'Success',
       description: 'Your account has been created successfully.',
@@ -76,7 +74,12 @@ export default function Signup() {
 
     // Optionally redirect after a short delay
     setTimeout(() => {
-      window.location.href = '/login'; // Redirect to login page
+      const lastAction = localStorage.getItem('lastAction');
+      if (lastAction) {
+        window.location.href = '/login'; // Redirect to login page with the last action preserved
+      } else {
+        window.location.href = '/login'; // Redirect to login page
+      }
     }, 1500);
 
   } catch (error: any) {

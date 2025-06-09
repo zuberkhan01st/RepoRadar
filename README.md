@@ -117,6 +117,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter)
+Your Name - [@yourtwitter](https://twitter.com/zuberkhan01st)
 
-Project Link: [https://github.com/yourusername/RepoRadar](https://github.com/yourusername/RepoRadar)
+Portfolio - [zuberkhan.tec](https://zuberkhan.tech)
+
+Project Link: [https://github.com/zuberkhan01st/RepoRadar](https://github.com/zuberkhan01st/RepoRadar)

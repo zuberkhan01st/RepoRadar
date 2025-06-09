@@ -13,9 +13,11 @@ import {
   ListIcon,
   useColorModeValue,
   Badge,
+  useToast,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { FaCheck, FaRocket, FaCrown, FaStar } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
 
 const MotionBox = motion(Box);
 
@@ -72,6 +74,30 @@ const plans = [
 const SubscriptionPlans = () => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const router = useRouter();
+  const toast = useToast();
+
+  const handlePlanSelection = (planName: string) => {
+    if (planName === 'Starter') {
+      // Redirect free plan to login page
+      router.push('/login');
+    } else {
+      // Show toast notification for premium plans
+      toast({
+        title: 'Coming Soon!',
+        description: `${planName} plan will be available soon. We'll notify you when it's ready!`,
+        status: 'info',
+        duration: 5000,
+        isClosable: true,
+        position: 'top',
+      });
+      
+      // Redirect to coming soon page after toast
+      setTimeout(() => {
+        router.push('/coming-soon');
+      }, 2000);
+    }
+  };
 
   return (
     <Box py={20} bg="black" opacity={0.8}>
@@ -152,18 +178,19 @@ const SubscriptionPlans = () => {
                           {feature}
                         </ListItem>
                       ))}
-                    </List>
-
-                    <Button
+                    </List>                    <Button
                       w="full"
                       colorScheme="brand"
                       size="lg"
+                      onClick={() => handlePlanSelection(plan.name)}
                       _hover={{
                         transform: 'translateY(-2px)',
                         boxShadow: 'lg',
                       }}
                     >
-                      Get Started
+                      {plan.name === 'Starter' ? 'Get Started Free' : 
+                       plan.name === 'Enterprise' ? 'Contact Sales' : 
+                       'Coming Soon'}
                     </Button>
                   </VStack>
                 </Box>

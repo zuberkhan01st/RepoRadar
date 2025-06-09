@@ -6,8 +6,7 @@ import {
   VStack,
   Heading,
   Text,
-  Input,
-  Button,
+  Input,  Button,
   FormControl,
   FormLabel,
   FormErrorMessage,
@@ -20,7 +19,8 @@ import {
   IconButton,
 } from '@chakra-ui/react';
 import { useState } from 'react';
-import { FaGithub, FaGoogle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
+import { FaGithub, FaGoogle, FaEye, FaEyeSlash, FaHome } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -33,6 +33,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -92,13 +93,21 @@ export default function Login() {
   } finally {
     setIsLoading(false);
   }
-};
-
-  return (
+};  return (
     <Box minH="100vh" position="relative">
       <AnimatedBackground />
       
       <Container maxW="container.sm" py={20} position="relative" zIndex={1}>
+        <HStack justify="space-between" mb={6}>
+          <IconButton
+            aria-label="Back to Home"
+            icon={<FaHome />}
+            variant="ghost"
+            color="white"
+            _hover={{ bg: 'whiteAlpha.200' }}
+            onClick={() => router.push('/')}
+          />
+        </HStack>
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

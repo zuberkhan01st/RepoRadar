@@ -26,6 +26,7 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^5.8.0",
     "remark-gfm": "^4.0.1"
+    
   },
   "devDependencies": {
     "@types/node": "^20",

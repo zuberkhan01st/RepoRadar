@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "RepoRadar - AI-Powered GitHub Repository Analysis",
   description: "Analyze any GitHub repository with AI and get instant insights",
   icons: {
-    icon: '../app/favicon.png', // Uses the existing file in your public folder
+    icon: '/favicon.png',
   },
 };
 

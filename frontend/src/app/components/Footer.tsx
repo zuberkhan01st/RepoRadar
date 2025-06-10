@@ -178,6 +178,16 @@ const Footer = () => {
             >
               Refunds
             </Link>
+            
+            <Link 
+              as={NextLink} 
+              href="/contact" 
+              fontSize="sm" 
+              _hover={{ color: 'brand.400', textDecoration: 'none' }}
+              fontWeight="medium"
+            >
+              Contact Us
+            </Link>
           </HStack>
         </Stack>
 

@@ -135,6 +135,7 @@ const Footer = () => {
             <Heading size="md" color="white" mb={2}>Legal</Heading>            <VStack align="flex-start" spacing={3}>              <Link as={NextLink} href="/privacy" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">Privacy Policy</Link>
               <Link as={NextLink} href="/terms" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">Terms of Service</Link>
               <Link as={NextLink} href="/refund" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">Refund Policy</Link>
+              <Link as={NextLink} href="/shipping" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">Shipping Policy</Link>
               <Link href="#cookies" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">Cookie Policy</Link>
               <Link href="#gdpr" _hover={{ color: 'brand.400', textDecoration: 'none' }} fontSize="sm">GDPR</Link>
             </VStack>
@@ -171,6 +172,15 @@ const Footer = () => {
             </Link>
             <Link 
               as={NextLink} 
+              href="/shipping" 
+              fontSize="sm" 
+              _hover={{ color: 'brand.400', textDecoration: 'none' }}
+              fontWeight="medium"
+            >
+              Shippinig Policy
+            </Link>
+            <Link 
+              as={NextLink} 
               href="/refund" 
               fontSize="sm" 
               _hover={{ color: 'brand.400', textDecoration: 'none' }}
@@ -188,6 +198,7 @@ const Footer = () => {
             >
               Contact Us
             </Link>
+            
           </HStack>
         </Stack>
 

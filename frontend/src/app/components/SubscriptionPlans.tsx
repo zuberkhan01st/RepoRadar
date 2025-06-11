@@ -25,8 +25,8 @@ const MotionBox = motion(Box);
 const plans = [
   {
     name: 'Starter',
-    price: '₹0',
-    priceINR: '0',
+    price: 'Free',
+    priceINR: '₹0',
     description: 'Perfect for individual developers',
     icon: FaStar,
     features: [

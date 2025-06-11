@@ -26,7 +26,7 @@ const plans = [
   {
     name: 'Starter',
     price: 'Free',
-    priceINR: 'Free',
+    priceINR: '₹0',
     description: 'Perfect for individual developers',
     icon: FaStar,
     features: [
